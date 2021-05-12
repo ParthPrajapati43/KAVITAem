@@ -13,7 +13,10 @@ const {
   loginController,
   forgotPasswordController,
   resetPasswordController,
+  googleController,
+  facebookController,
 } = require("../controllers/auth.controller.js");
+
 // validations
 const {
   validRegister,
@@ -35,5 +38,8 @@ router.put(
   forgotPasswordController
 );
 router.put("/resetpassword", resetPasswordValidator, resetPasswordController);
+
+router.post("/googlelogin", googleController);
+router.post("/facebooklogin", facebookController);
 
 module.exports = router;

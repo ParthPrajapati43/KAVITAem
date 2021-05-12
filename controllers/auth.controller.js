@@ -308,3 +308,146 @@ exports.resetPasswordController = (req, res) => {
     }
   }
 };
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT);
+// Google Login
+exports.googleController = (req, res) => {
+  // get token from req
+  const { idToken } = req.body;
+
+  // verify token
+  client
+    .verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT })
+    .then((response) => {
+      // console.log('GOOGLE LOGIN RESPONSE',response)
+      const { email_verified, name, email } = response.payload;
+      // check if email is verified
+      if (email_verified) {
+        // find if this email already exist
+        User.findOne({ email }).exec((err, user) => {
+          // if exist
+          if (user) {
+            const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+              expiresIn: "7d", // valid token for 7 days
+            });
+            const { _id, email, name, role } = user;
+            // send response to client side(react) token and user info
+            return res.json({
+              token,
+              user: { _id, email, name, role },
+            });
+          } else {
+            // if use doesn't exist we will save in database and generate password for it
+            let password = email + process.env.JWT_SECRET;
+            user = new User({ name, email, password }); // create user object with this email
+            user.save((err, data) => {
+              if (err) {
+                console.log("ERROR GOOGLE LOGIN ON USER SAVE", err);
+                return res.status(400).json({
+                  error: "User signup failed with google",
+                });
+              }
+              // if no error, generate token
+              const token = jwt.sign(
+                { _id: data._id },
+                process.env.JWT_SECRET,
+                { expiresIn: "7d" }
+              );
+              const { _id, email, name, role } = data;
+              return res.json({
+                token,
+                user: { _id, email, name, role },
+              });
+            });
+          }
+        });
+      } else {
+        // if error
+        return res.status(400).json({
+          error: "Google login failed. Try again",
+        });
+      }
+    });
+};
+
+exports.facebookController = (req, res) => {
+  console.log("FACEBOOK LOGIN REQ BODY", req.body);
+  const { userID, accessToken } = req.body;
+
+  const url = `https://graph.facebook.com/v2.11/${userID}/?fields=id,name,email&access_token=${accessToken}`;
+
+  return (
+    fetch(url, {
+      method: "GET",
+    })
+      .then((response) => response.json())
+      // .then(response => console.log(response))
+      .then((response) => {
+        const { email, name } = response;
+        User.findOne({ email }).exec((err, user) => {
+          if (user) {
+            const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+              expiresIn: "7d",
+            });
+            const { _id, email, name, role } = user;
+            return res.json({
+              token,
+              user: { _id, email, name, role },
+            });
+          } else {
+            let password = email + process.env.JWT_SECRET;
+            user = new User({ name, email, password });
+            user.save((err, data) => {
+              if (err) {
+                console.log("ERROR FACEBOOK LOGIN ON USER SAVE", err);
+                return res.status(400).json({
+                  error: "User signup failed with facebook",
+                });
+              }
+              const token = jwt.sign(
+                { _id: data._id },
+                process.env.JWT_SECRET,
+                { expiresIn: "7d" }
+              );
+              const { _id, email, name, role } = data;
+              return res.json({
+                token,
+                user: { _id, email, name, role },
+              });
+            });
+          }
+        });
+      })
+      .catch((error) => {
+        res.json({
+          error: "Facebook login failed. Try later",
+        });
+      })
+  );
+};
+
+exports.requireSignin = expressJwt({
+  secret: process.env.JWT_SECRET, // req.user._id
+  algorithms: ["SHA1"],
+});
+
+exports.adminMiddleware = (req, res, next) => {
+  User.findById({
+    _id: req.user._id,
+  }).exec((err, user) => {
+    if (err || !user) {
+      return res.status(400).json({
+        error: "User not found",
+      });
+    }
+
+    if (user.role !== "admin") {
+      return res.status(400).json({
+        error: "Admin resource. Access denied.",
+      });
+    }
+
+    req.profile = user;
+    next();
+  });
+};

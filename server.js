@@ -7,6 +7,7 @@ const connectDB = require("./config/db.js");
 
 // load all routes
 const authRouter = require("./routes/auth.route.js");
+const userRouter = require("./routes/user.route.js");
 
 // creating the express object
 const app = express();
@@ -37,6 +38,7 @@ if (process.env.NODE_ENV === "development") {
 
 // use routes
 app.use("/api", authRouter);
+app.use("/api", userRouter);
 
 app.use((req, res, next) => {
   res.status(404).json({
@@ -45,7 +47,7 @@ app.use((req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 // bind and listen the connections on the specified host and port
 app.listen(PORT, () => {

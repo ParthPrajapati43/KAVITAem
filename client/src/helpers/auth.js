@@ -1,4 +1,5 @@
 import cookie, { set } from "js-cookie";
+import { GoogleLogout } from "react-google-login";
 
 // Set in Cookie
 export const setCookie = (key, value) => {
@@ -47,12 +48,6 @@ export const authenticate = (response, next) => {
   next();
 };
 
-// signout
-export const signout = (next) => {
-  removeCookie("token");
-  removeaLocalStorage("user");
-};
-
 // get user info from ocal storage
 export const isAuth = () => {
   if (window !== "undefined") {
@@ -65,6 +60,13 @@ export const isAuth = () => {
       }
     }
   }
+};
+
+// signout
+export const signout = (next) => {
+  removeCookie("token");
+  removeaLocalStorage("user");
+  next();
 };
 
 // update user data in local storage
